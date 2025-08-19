@@ -476,4 +476,4 @@ async def upload_files(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host=os.environ.get("FLIP_IP", "127.0.0.1"), port=os.environ.get("FLIP_PORT", 9871))
+    uvicorn.run(app, host=os.environ.get("FLIP_IP", "0.0.0.0"), port=os.environ.get("FLIP_PORT", 9871))

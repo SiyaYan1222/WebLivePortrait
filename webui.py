@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='Faster Live Portrait Pipeline')
 parser.add_argument('--mode', required=False, type=str, default="onnx")
 parser.add_argument('--use_mp', action='store_true', help='use mediapipe or not')
 parser.add_argument(
-    "--host_ip", type=str, default="127.0.0.1", help="host ip"
+    "--host_ip", type=str, default="0.0.0.0", help="host ip"
 )
 parser.add_argument("--port", type=int, default=9870, help="server port")
 args, unknown = parser.parse_known_args()
