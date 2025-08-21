@@ -4,7 +4,7 @@ onnx
 pycuda
 numpy
 opencv-python
-gradio
+gradio==5.43.1
 scikit-image
 insightface
 huggingface_hub[cli]

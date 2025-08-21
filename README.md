@@ -1,5 +1,33 @@
+# Notes
+## Start Container
+```sh
+docker run -it --gpus=all --name faster_liveportrait  \
+--device /dev/video0 --device /dev/video1 \
+--device /dev/nvidia0 --device /dev/nvidiactl --device /dev/nvidia-uvm --device /dev/nvidia-uvm-tools \
+-e DISPLAY=$DISPLAY \
+-v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+-v /usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:ro \
+-v $(pwd -P):/root/FasterLivePortrait \
+-p 9870:9870 shaoguo/faster_liveportrait:v3 /bin/bash
+```
+
+## Run webcam
+```sh
+  python run.py \
+ --src_image assets/examples/source/test.png \
+ --dri_video 0 \
+ --cfg configs/trt_infer.yaml \
+ --realtime
+```
+## Run CLI
+```sh
+ python run.py \
+ --src_image assets/examples/source/test.png \
+ --dri_video assets/examples/driving/test_4.mp4 \
+ --cfg configs/trt_infer.yaml
+```
+
 ## FasterLivePortrait: Bring portraits to life in Real Time!
-<a href="README.md">English</a> | <a href="README_ZH.md">中文</a>
 
 **Original repository: [LivePortrait](https://github.com/KwaiVGI/LivePortrait), thanks to the authors for sharing**
 
@@ -7,30 +35,6 @@
 * Achieved real-time running of LivePortrait on RTX 3090 GPU using TensorRT, reaching speeds of 30+ FPS. This is the speed for rendering a single frame, including pre- and post-processing, not just the model inference speed.
 * Seamless support for native gradio app, with several times faster speed and support for simultaneous inference on multiple faces and Animal Model.
 * Added support for [JoyVASA](https://github.com/jdh-algo/JoyVASA), which can drive videos or images with audio.
-
-**If you find this project useful, please give it a star ✨✨**
-
-### Demo (Explore more features)
-* Anyone want this? Fell free to contact me.
-
-<video src="https://github.com/user-attachments/assets/554c37fc-d098-4938-a638-1660d85d222e" controls="controls" width="500" height="300">Your browser does not support this video!</video>
-
-
-* Text-driven video, based on kokoro-82M:
-
-<video src="https://github.com/user-attachments/assets/04e962e2-6c57-4d01-ae4a-2f6d2d501c5a" controls="controls" width="500" height="300">Your browser does not support this video!</video>
-
-* Audio-driven video (real-time):
-
-<video src="https://github.com/user-attachments/assets/98bb5ff7-0796-42db-9d7b-e04ddd2c3c14" controls="controls" width="500" height="300">Your browser does not support this video!</video>
-
-* Animal-driven:
-
-<video src="https://github.com/user-attachments/assets/dada0a92-593a-480b-a034-cbcce16e38b9" controls="controls" width="500" height="300">Your browser does not support this video!</video>
-
-* Multiple faces driven simultaneously:
-
-<video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/b37de35d-6feb-4100-b73f-58ac23121483" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
 
 ### Environment Setup

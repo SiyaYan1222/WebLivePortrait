@@ -14,7 +14,7 @@ import cv2
 from tqdm import tqdm
 import numpy as np
 import torch
-
+torch.backends.cudnn.benchmark = True 
 from .. import models
 from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back, paste_back_pytorch
 from ..utils.utils import resize_to_limit, prepare_paste_back, get_rotation_matrix, calc_lip_close_ratio, \
