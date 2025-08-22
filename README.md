@@ -1,6 +1,21 @@
 # WebLivePortrait: Web Live Portraits in Real Time
 
-**Original repository: [LivePortrait](https://github.com/KwaiVGI/LivePortrait), Built on [FasterLivePortrait](https://github.com/warmshao/FasterLivePortrait)**
+## Introduction
+This repository is a fork of [FasterLivePortrait](https://github.com/warmshao/FasterLivePortrait), which itself is based on the original [LivePortrait](https://github.com/KwaiVGI/LivePortrait) project.
+
+In this project, I focused on retaining only the core functionality I needed from FasterLivePortrait and extending it with new features.
+
+#### ✅ Features kept from FasterLivePortrait
+
+- Source image/video + driving video → Live Portrait (CLI & WebUI)
+
+- Webcam real-time input → Live Portrait (CLI)
+
+- OnnxGPU and TensorRT option for GPU usage
+
+#### ✨ New feature added in this fork
+
+- Webcam real-time generation in Gradio Web App for smoother, interactive usage.
 
 ## Environment Setup
   * Install [Docker](https://docs.docker.com/desktop/install/windows-install/) according to your system
@@ -80,3 +95,4 @@
 
 - **Code**: This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 - **Models**: Any machine learning models used in this project are subject to their respective licenses. Please refer to the original model sources for license information. We do not take responsibility for model license compliance.
+
