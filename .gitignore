@@ -9,8 +9,9 @@ venv
 build
 dist
 *.eg
-checkpoints_test
+tests
 logs
 third_party
 test.mp4
 test.png
+*.pem

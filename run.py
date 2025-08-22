@@ -22,7 +22,6 @@
 """
 import os
 import argparse
-import pdb
 import subprocess
 import ffmpeg
 import cv2
@@ -116,7 +115,7 @@ def run_with_video(args):
             else:
                 # image show in realtime mode
                 cv2.imshow('Render', out_crop)
-            # 按下'q'键退出循环
+
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
     vcap.release()

@@ -3,20 +3,19 @@
 # @Email   : wenshaoguo0611@gmail.com
 # @Project : FasterLivePortrait
 # @FileName: gradio_live_portrait_pipeline.py
-import pdb
+
 
 import gradio as gr
 import cv2
 import datetime
 import os
 import time
-import torchaudio
+
 from tqdm import tqdm
 import subprocess
 import pickle
 import numpy as np
 from .faster_live_portrait_pipeline import FasterLivePortraitPipeline
-from .joyvasa_audio_to_motion_pipeline import JoyVASAAudio2MotionPipeline
 from ..utils.utils import video_has_audio
 from ..utils.utils import resize_to_limit, prepare_paste_back, get_rotation_matrix, calc_lip_close_ratio, \
     calc_eye_close_ratio, transform_keypoint, concat_feat
@@ -24,7 +23,6 @@ from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbo
 from src.utils import utils
 import platform
 import torch
-from PIL import Image
 
 if platform.system().lower() == 'windows':
     FFMPEG = "third_party/ffmpeg-7.0.1-full_build/bin/ffmpeg.exe"
@@ -33,11 +31,6 @@ else:
 
 
 class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
-    def __init__(self, cfg, **kwargs):
-        super(GradioLivePortraitPipeline, self).__init__(cfg, **kwargs)
-        self.joyvasa_pipe = None
-        self.kokoro_model = None
-
     def execute_video(
             self,
             input_source_image_path=None,
@@ -128,23 +121,6 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
                 return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
                     visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-            elif v_tab_selection == 'Audio':
-                # audio driven animation
-                video_path, video_path_concat, total_time = self.run_audio_driving(input_driving_path,
-                                                                                   input_source_path,
-                                                                                   update_ret=update_ret)
-                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
-                return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
-                    visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-            elif v_tab_selection == 'Text':
-                # Text driven animation
-                video_path, video_path_concat, total_time = self.run_text_driving(input_driving_path,
-                                                                                  voice_name,
-                                                                                  input_source_path,
-                                                                                  update_ret=update_ret)
-                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
-                return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
-                    visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
             else:
                 # video driven animation
                 image_path, image_path_concat, total_time = self.run_image_driving(input_driving_path,
@@ -159,7 +135,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
 
     def run_image_driving(self, driving_image_path, source_path, **kwargs):
         if self.source_path != source_path or kwargs.get("update_ret", False):
-            # 如果不一样要重新初始化变量
+
             self.init_vars(**kwargs)
             ret = self.prepare_source(source_path)
             if not ret:
@@ -260,17 +236,17 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                     [FFMPEG, "-i", vsave_crop_path, "-i", driving_video_path,
                      "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
                      "-c:a", "aac", "-pix_fmt", "yuv420p",
-                     "-shortest",  # 以最短的流为基准
-                     "-t", str(duration),  # 设置时长
-                     "-r", str(fps),  # 设置帧率
+                     "-shortest",  
+                     "-t", str(duration),
+                     "-r", str(fps), 
                      vsave_crop_path_new, "-y"])
                 subprocess.call(
                     [FFMPEG, "-i", vsave_org_path, "-i", driving_video_path,
                      "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
                      "-c:a", "aac", "-pix_fmt", "yuv420p",
-                     "-shortest",  # 以最短的流为基准
-                     "-t", str(duration),  # 设置时长
-                     "-r", str(fps),  # 设置帧率
+                     "-shortest", 
+                     "-t", str(duration),  
+                     "-r", str(fps), 
                      vsave_org_path_new, "-y"])
             else:
                 subprocess.call(
@@ -294,7 +270,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         t00 = time.time()
 
         if self.source_path != source_path or kwargs.get("update_ret", False):
-            # 如果不一样要重新初始化变量
+
             self.init_vars(**kwargs)
             ret = self.prepare_source(source_path)
             if not ret:
@@ -364,102 +340,6 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         total_time = time.time() - t00
         vout_crop.release()
         vout_org.release()
-
-        return vsave_org_path, vsave_crop_path, total_time
-
-    def run_audio_driving(self, driving_audio_path, source_path, **kwargs):
-        t00 = time.time()
-
-        if self.source_path != source_path or kwargs.get("update_ret", False):
-            # 如果不一样要重新初始化变量
-            self.init_vars(**kwargs)
-            ret = self.prepare_source(source_path)
-            if not ret:
-                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
-        save_dir = kwargs.get("save_dir", f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}")
-        os.makedirs(save_dir, exist_ok=True)
-
-        if self.joyvasa_pipe is None:
-            self.joyvasa_pipe = JoyVASAAudio2MotionPipeline(motion_model_path=self.cfg.joyvasa_models.motion_model_path,
-                                                            audio_model_path=self.cfg.joyvasa_models.audio_model_path,
-                                                            motion_template_path=self.cfg.joyvasa_models.motion_template_path,
-                                                            cfg_mode=self.cfg.infer_params.cfg_mode,
-                                                            cfg_scale=self.cfg.infer_params.cfg_scale
-                                                            )
-        t01 = time.time()
-        dri_motion_infos = self.joyvasa_pipe.gen_motion_sequence(driving_audio_path)
-        gr.Info(f"JoyVASA cost time:{time.time() - t01}", duration=2)
-        motion_pickle_path = os.path.join(save_dir,
-                                          f"{os.path.basename(source_path)}-{os.path.basename(driving_audio_path)}.pkl")
-        with open(motion_pickle_path, "wb") as fw:
-            pickle.dump(dri_motion_infos, fw)
-
-        vsave_org_path, vsave_crop_path, total_time = self.run_pickle_driving(motion_pickle_path, source_path,
-                                                                              save_dir=save_dir)
-
-        vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
-        vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
-
-        duration, fps = utils.get_video_info(vsave_crop_path)
-        subprocess.call(
-            [FFMPEG, "-i", vsave_crop_path, "-i", driving_audio_path,
-             "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
-             "-c:a", "aac", "-pix_fmt", "yuv420p",
-             "-shortest",  # 以最短的流为基准
-             "-t", str(duration),  # 设置时长
-             "-r", str(fps),  # 设置帧率
-             vsave_crop_path_new, "-y"])
-        subprocess.call(
-            [FFMPEG, "-i", vsave_org_path, "-i", driving_audio_path,
-             "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
-             "-c:a", "aac", "-pix_fmt", "yuv420p",
-             "-shortest",  # 以最短的流为基准
-             "-t", str(duration),  # 设置时长
-             "-r", str(fps),  # 设置帧率
-             vsave_org_path_new, "-y"])
-
-        return vsave_org_path_new, vsave_crop_path_new, time.time() - t00
-
-    def run_text_driving(self, driving_text, voice_name, source_path, **kwargs):
-        if self.source_path != source_path or kwargs.get("update_ret", False):
-            # 如果不一样要重新初始化变量
-            self.init_vars(**kwargs)
-            ret = self.prepare_source(source_path)
-            if not ret:
-                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
-        save_dir = kwargs.get("save_dir", f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}")
-        os.makedirs(save_dir, exist_ok=True)
-        # TODO: make it better
-        import platform
-        if platform.system() == "Windows":
-            # refer: https://huggingface.co/hexgrad/Kokoro-82M/discussions/12
-            # if you install in different path, remember to change below envs
-            os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
-            os.environ["PHONEMIZER_ESPEAK_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng.exe"
-        from kokoro import KPipeline, KModel
-        import soundfile as sf
-        import json
-        with open("checkpoints/Kokoro-82M/config.json", "r", encoding="utf-8") as fin:
-            model_config = json.load(fin)
-        model = KModel(config=model_config, model="checkpoints/Kokoro-82M/kokoro-v1_0.pth")
-        pipeline = KPipeline(lang_code=voice_name[0], model=model)  # <= make sure lang_code matches voice
-        model.voices = {}
-        voice_path = "checkpoints/Kokoro-82M/voices"
-        for vname in os.listdir(voice_path):
-            pipeline.voices[os.path.splitext(vname)[0]] = torch.load(os.path.join(voice_path, vname), weights_only=True)
-        generator = pipeline(
-            driving_text, voice=voice_name,  # <= change voice here
-            speed=1, split_pattern=r'\n+'
-        )
-        audios = []
-        for i, (gs, ps, audio) in enumerate(generator):
-            audios.append(audio)
-        audios = np.concatenate(audios)
-        audio_save_path = os.path.join(save_dir, f"kokoro-82m-{voice_name}.wav")
-        sf.write(audio_save_path, audios, 24000)
-        print("save audio to:", audio_save_path)
-        vsave_org_path, vsave_crop_path, total_time = self.run_audio_driving(audio_save_path, source_path,
-                                                                             save_dir=save_dir)
 
         return vsave_org_path, vsave_crop_path, total_time
 

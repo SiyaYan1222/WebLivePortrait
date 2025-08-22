@@ -1,32 +1,24 @@
-# coding: utf-8
-
-"""
-The entrance of the gradio
-"""
-
-import time
-
 import gradio as gr
 import os.path as osp
 from omegaconf import OmegaConf
 
-from src.pipelines.gradio_live_portrait_pipeline import GradioLivePortraitPipeline
+from collections import deque
+import threading, time
+import queue
+
 import cv2
 import numpy as np
 
-from src.pipelines.faster_live_portrait_pipeline import FasterLivePortraitPipeline  # reuse realtime API
-
-
-def load_description(fp):
-    with open(fp, 'r', encoding='utf-8') as f:
-        content = f.read()
-    return content
-
-
 import argparse
 
+
+
+from src.pipelines.gradio_live_portrait_pipeline import GradioLivePortraitPipeline
+from src.pipelines.faster_live_portrait_pipeline import FasterLivePortraitPipeline 
+
+
 parser = argparse.ArgumentParser(description='Faster Live Portrait Pipeline')
-parser.add_argument('--mode', required=False, type=str, default="onnx")
+parser.add_argument('--mode', required=False, type=str, default="trt")
 parser.add_argument('--use_mp', action='store_true', help='use mediapipe or not')
 parser.add_argument(
     "--host_ip", type=str, default="0.0.0.0", help="host ip"
@@ -38,8 +30,10 @@ if args.mode == "onnx":
     cfg_path = "configs/onnx_mp_infer.yaml" if args.use_mp else "configs/onnx_infer.yaml"
 else:
     cfg_path = "configs/trt_mp_infer.yaml" if args.use_mp else "configs/trt_infer.yaml"
+    
 infer_cfg = OmegaConf.load(cfg_path)
 gradio_pipeline = GradioLivePortraitPipeline(infer_cfg)
+live_pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=False)  # uses same config as app  # :contentReference[oaicite:5]{index=5}
 
 
 def gpu_wrapped_execute_video(*args, **kwargs):
@@ -55,14 +49,15 @@ def change_animal_model(is_animal):
     gradio_pipeline.clean_models()
     gradio_pipeline.init_models(is_animal=is_animal)
 
+def load_description(fp):
+    with open(fp, 'r', encoding='utf-8') as f:
+        content = f.read()
+    return content
 
-# assets
-title_md = "assets/gradio/gradio_title.md"
+TARGET_W, TARGET_H = 512, 512
 example_portrait_dir = "assets/examples/source"
 example_video_dir = "assets/examples/driving"
-#################### interface logic ####################
 
-# Define components first
 eye_retargeting_slider = gr.Slider(minimum=0, maximum=0.8, step=0.01, label="target eyes-open ratio")
 lip_retargeting_slider = gr.Slider(minimum=0, maximum=0.8, step=0.01, label="target lip-open ratio")
 retargeting_input_image = gr.Image(type="filepath")
@@ -93,23 +88,6 @@ js_func = """
     }
     """
     
-css = """
-#live_cam .contain .prose {
-    text-align: center !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-}
-"""
-TARGET_W, TARGET_H = 512, 512
-
-# --- ADD: a dedicated realtime pipeline shared across sessions (models on GPU),
-# while per-session state keeps source + frame index ---
-live_pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=False)  # uses same config as app  # :contentReference[oaicite:5]{index=5}
-
-from collections import deque
-import threading, time
 
 def ensure_worker(st):
     """Start the worker once per session."""
@@ -128,7 +106,6 @@ def ensure_worker(st):
     st["worker_started"] = True
     return st
 
-import queue
 def infer_worker(st):
     stop_event = st["stop_event"]
     first = True
@@ -141,15 +118,8 @@ def infer_worker(st):
 
         if not st.get("src_ready"):
             continue
-        # wait for a frame
-        # if not st.get("src_ready"):
-        #     time.sleep(0.05)      # wait until source prepared
-        #     continue
-        # if not st["frame_buf"]:
-        #     time.sleep(0.004)     # tiny backoff, avoid spin
-        #     continue
 
-        # driving_frame_rgb = st["frame_buf"][-1]
+
         img_bgr = cv2.cvtColor(driving_frame_rgb, cv2.COLOR_RGB2BGR)
 
         if stop_event.is_set():   # cooperative cancel
@@ -170,10 +140,6 @@ def infer_worker(st):
     print("worker stopped")
     st["running"] = False
 
-# start the worker once (e.g., at app init)
-# threading.Thread(target=infer_worker, daemon=True).start()
-
-ALPHA = 0.9  # smoothing factor for FPS
 
 def _draw_fps(rgb, st):
     if rgb is None:
@@ -242,7 +208,6 @@ def live_prepare(src_path, st):
         st["first_frame"] = True
     return st, (msg or "")
 
-
 def stop_worker(st):
     """Stop worker if running and clean up."""
     ev = st.get("stop_event")
@@ -291,14 +256,12 @@ def live_prepare_source(src_path):
     # store copies so later we don't mutate live_pipe internals across sessions
     return {"ok": True}, "Source prepared ✅"
 
-def on_unload(st):
-    st = stop_worker(st)
-    return st
 
-with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta Sans")]), js=js_func, css=css) as demo:
-    gr.HTML(load_description(title_md))
+with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta Sans")]), js=js_func) as demo:
+    gr.HTML(load_description("assets/gradio/gradio_title.md"))
     # ------------------- NEW: Live Webcam tab -------------------
-    gr.Markdown("## 🔴 Live (Webcam) — Realtime in Browser")
+    gr.Markdown("## 🔴 Live Generation (Webcam) ")
+    gr.Markdown(load_description("assets/gradio/gradio_description_realtime.md"))
     with gr.Row():
         with gr.Column():
             live_src = gr.Image(label="Source Image (once)", type="filepath", height=TARGET_H, width=TARGET_W)
@@ -315,30 +278,24 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                 width=TARGET_W,
                 elem_id="webcam"
             )
-            # prepare_btn  = gr.Button("Prepare & Start", variant="primary")
-
+            gr.Markdown("**Note:** Webcam must be enabled in browser settings. If it doesn't work, try Chrome browser or check permissions.")
         with gr.Column():
             live_out = gr.Image(label="Output (Live)", type="numpy", format="jpeg", height=TARGET_H, width=TARGET_W)
             toggle_btn = gr.Button("▶️ Start", variant="primary")
-    # per-session state:
-    # - src_ready/first_frame are per-user so parallel users don't clash
+
     live_state = gr.State({"src_ready": False, "first_frame": True, "run": False, "last_vis": None})
 
     live_prepare_btn.click(live_prepare, inputs=[live_src, live_state], outputs=[live_state, live_status])
-
-    # Stream frames -> inference -> display
     
     live_cam.stream(live_step, inputs=[live_cam, live_state], outputs=[live_out, live_state], stream_every=0.1)  # 10fps
-
-    # demo.unload(on_unload)
     
     toggle_btn.click(
         toggle_run,
         inputs=[live_state],
         outputs=[live_state, toggle_btn]
     )
-
-
+    gr.Markdown("## ") 
+    gr.Markdown("## 📷 Pre-Recorded Generation")
     gr.Markdown(load_description("assets/gradio/gradio_description_upload.md"))
     with gr.Row():
         with gr.Column():
@@ -379,6 +336,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
 
                 tab_image.select(lambda: "Image", None, tab_selection)
                 tab_video.select(lambda: "Video", None, tab_selection)
+
             with gr.Accordion(open=True, label="Cropping Options for Source Image or Video"):
                 with gr.Row():
                     flag_do_crop_input = gr.Checkbox(value=True, label="do crop (source)")
@@ -418,7 +376,6 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                             inputs=[driving_image_input],
                             cache_examples=False,
                         )
-
                 with gr.TabItem("📁 Driving Pickle") as v_tab_pickle:
                     with gr.Accordion(open=True, label="Driving Pickle"):
                         driving_pickle_input = gr.File(type="filepath", file_types=[".pkl"])
@@ -431,45 +388,15 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                             cache_examples=False,
                         )
 
-                with gr.TabItem("🎵 Driving Audio") as v_tab_audio:
-                    with gr.Accordion(open=True, label="Driving Audio"):
-                        driving_audio_input = gr.Audio(
-                            value=None,
-                            type="filepath",
-                            interactive=True,
-                            show_label=False,
-                            waveform_options=gr.WaveformOptions(
-                                sample_rate=24000,
-                            ),
-                        )
-                        gr.Examples(
-                            examples=[
-                                [osp.join(example_video_dir, "a-01.wav")],
-                            ],
-                            inputs=[driving_audio_input],
-                            cache_examples=False,
-                        )
-
-                # with gr.TabItem("📄Driving Text") as v_tab_text:
-                #     with gr.Accordion(open=True, label="Driving Text"):
-                #         driving_text_input = gr.Textbox(value="Hi, I am created by Faster LivePortrait!",
-                #                                         label="Driving Text")
-                #         voice_dir = "checkpoints/Kokoro-82M/voices/"
-                #         voice_names = [os.path.splitext(vname)[0] for vname in os.listdir(voice_dir) if vname.endswith(".pt")]
-                #         voice_name = gr.Dropdown(
-                #             choices=voice_names, value='af_heart', label="Voice Name")
-
                 v_tab_selection = gr.Textbox(value="Video", visible=False)
                 v_tab_video.select(lambda: "Video", None, v_tab_selection)
                 v_tab_image.select(lambda: "Image", None, v_tab_selection)
                 v_tab_pickle.select(lambda: "Pickle", None, v_tab_selection)
-                v_tab_audio.select(lambda: "Audio", None, v_tab_selection)
-                # v_tab_text.select(lambda: "Text", None, v_tab_selection)
-                # add this with your other components (right after driving_audio_input block)
-                driving_text_input = gr.Textbox(value="", visible=False)  # placeholder so args align
 
-            # with gr.Accordion(open=False, label="Animation Instructions"):
-            # gr.Markdown(load_description("assets/gradio/gradio_description_animation.md"))
+                driving_text_input = gr.Textbox(value="", visible=False)  # placeholder so args align
+                driving_audio_input = gr.Textbox(value="", visible=False) 
+
+            gr.Markdown("**Tips:** Focus on the head, minimize shoulder movement, neutral expression in first frame.")
             with gr.Accordion(open=True, label="Cropping Options for Driving Video"):
                 with gr.Row():
                     flag_crop_driving_video_input = gr.Checkbox(value=False, label="do crop (driving)")
@@ -496,6 +423,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                                                                 minimum=1e-11, maximum=1e-2, step=1e-8)
                 flag_is_animal = gr.Checkbox(value=False, label="is_animal")
 
+    gr.Markdown("---") 
     gr.Markdown(load_description("assets/gradio/gradio_description_animate_clear.md"))
     with gr.Row():
         process_button_animation = gr.Button("🚀 Animate", variant="primary")
@@ -520,55 +448,6 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
              driving_image_input, output_video_i2v, output_video_concat_i2v, output_image_i2i, output_image_concat_i2i],
             value="🧹 Clear")
 
-    # Retargeting
-    # gr.Markdown(load_description("assets/gradio/gradio_description_retargeting.md"), visible=True)
-    # with gr.Row(visible=True):
-    #     eye_retargeting_slider.render()
-    #     lip_retargeting_slider.render()
-    # with gr.Row(visible=True):
-    #     process_button_retargeting = gr.Button("🚗 Retargeting", variant="primary")
-    #     process_button_reset_retargeting = gr.ClearButton(
-    #         [
-    #             eye_retargeting_slider,
-    #             lip_retargeting_slider,
-    #             retargeting_input_image,
-    #             output_image,
-    #             output_image_paste_back
-    #         ],
-    #         value="🧹 Clear"
-    #     )
-    # with gr.Row(visible=True):
-    #     with gr.Column():
-    #         with gr.Accordion(open=True, label="Retargeting Input"):
-    #             retargeting_input_image.render()
-    #             gr.Examples(
-    #                 examples=[
-    #                     [osp.join(example_portrait_dir, "s9.jpg")],
-    #                     [osp.join(example_portrait_dir, "s6.jpg")],
-    #                     [osp.join(example_portrait_dir, "s10.jpg")],
-    #                     [osp.join(example_portrait_dir, "s5.jpg")],
-    #                     [osp.join(example_portrait_dir, "s7.jpg")],
-    #                     [osp.join(example_portrait_dir, "s12.jpg")],
-    #                 ],
-    #                 inputs=[retargeting_input_image],
-    #                 cache_examples=False,
-    #             )
-    #     with gr.Column():
-    #         with gr.Accordion(open=True, label="Retargeting Result"):
-    #             output_image.render()
-    #     with gr.Column():
-    #         with gr.Accordion(open=True, label="Paste-back Result"):
-    #             output_image_paste_back.render()
-
-    # flag_is_animal.change(change_animal_model, inputs=[flag_is_animal])
-    # # binding functions for buttons
-    # process_button_retargeting.click(
-    #     # fn=gradio_pipeline.execute_image,
-    #     fn=gpu_wrapped_execute_image,
-    #     inputs=[eye_retargeting_slider, lip_retargeting_slider, retargeting_input_image, flag_do_crop_input],
-    #     outputs=[output_image, output_image_paste_back],
-    #     show_progress=True
-    # )
     process_button_animation.click(
         fn=gpu_wrapped_execute_video,
         inputs=[
@@ -598,7 +477,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             tab_selection,
             v_tab_selection,
             cfg_scale,
-            # voice_name
+
         ],
         outputs=[output_video_i2v, output_video_i2v, output_video_concat_i2v, output_video_concat_i2v,
                  output_image_i2i, output_image_i2i, output_image_concat_i2i, output_image_concat_i2i],
@@ -606,20 +485,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
     )
 
 
-# from fastapi import FastAPI
-# # 2) Create FastAPI app **at module level**
-# app = FastAPI()
-# app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-# # 3) Mount Gradio under "/"
-# app = gr.mount_gradio_app(app, demo, path="/")
-
-# # 4) Optional: provide a __main__ path for running without uvicorn CLI
-
-# import uvicorn
 if __name__ == '__main__':
-    # uvicorn.run("webui:app", host=args.host_ip, port=args.port, reload=False)
-
     demo.launch(
         server_port=args.port,
         server_name=args.host_ip,
