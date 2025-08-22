@@ -1,5 +1,17 @@
 # WebLivePortrait: Web Live Portraits in Real Time
 
+## Background Context
+Live Portrait is a `deep learning–based model` for `face reenactment` and `motion transfer`.
+It takes a `source image (or video)` and a `driving video`, and generates an `animated output` where the source face follows the expressions and movements of the driver.
+
+#### 🧩 Mechanism
+
+- Motion Extraction – Extracts motion keypoints (e.g., head pose, facial expressions) from the driving video.
+
+- Appearance Feature Extraction – Encodes visual features from the source image/video.
+
+- Warping & Stitching – Warps the source features based on motion, then stitches them into a coherent animated frame.
+
 ## Introduction
 This repository is a fork of [FasterLivePortrait](https://github.com/warmshao/FasterLivePortrait), which itself is based on the original [LivePortrait](https://github.com/KwaiVGI/LivePortrait) project.
 
@@ -11,7 +23,7 @@ In this project, I focused on retaining only the core functionality I needed fro
 
 - Webcam real-time input → Live Portrait (CLI)
 
-- OnnxGPU and TensorRT option for GPU usage
+- OnnxGPU and TensorRT option for GPU usage (Utilize TensorRT for Real Time Usage)
 
 #### ✨ New feature added in this fork
 
@@ -95,4 +107,5 @@ In this project, I focused on retaining only the core functionality I needed fro
 
 - **Code**: This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 - **Models**: Any machine learning models used in this project are subject to their respective licenses. Please refer to the original model sources for license information. We do not take responsibility for model license compliance.
+
 
