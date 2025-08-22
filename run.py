@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# @Author  : wenshao
-# @Email   : wenshaoguo1026@gmail.com
-# @Project : FasterLivePortrait
+# @Author  : wenshao & siya
+# @Email   : wenshaoguo1026@gmail.com & siyayan1222@gmail.com
+# @Project : WebLivePortrait
 # @FileName: run.py
 
 """

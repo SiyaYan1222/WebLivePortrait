@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# @Author  : wenshao & siya
+# @Email   : wenshaoguo1026@gmail.com & siyayan1222@gmail.com
+# @Project : WebLivePortrait
+# @FileName: webui.py
 import gradio as gr
 import os.path as osp
 from omegaconf import OmegaConf

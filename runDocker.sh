@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-# FasterLivePortrait Docker helper
 set -euo pipefail
 
 NAME=${NAME:-faster_liveportrait}
@@ -42,7 +40,7 @@ start_container() {
     -e DISPLAY="$DISPLAY_VAR" --network host
     -v /tmp/.X11-unix:/tmp/.X11-unix:ro
     -v /usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:ro
-    -v "$HOST_PROJ":/root/FasterLivePortrait
+    -v "$HOST_PROJ":/root/WebLivePortrait
   )
 
   if docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; then
@@ -51,7 +49,7 @@ start_container() {
   else
     echo "Creating & starting '$NAME' from '$IMAGE'…"
     docker run "${RUN_OPTS[@]}" "$IMAGE"  \
-    bash -lic 'cd /root/FasterLivePortrait && \
+    bash -lic 'cd /root/WebLivePortrait && \
                pip install -r requirements.txt && \
                echo "[Inside container] Dependencies installed, keeping container alive..." && \
                sleep infinity'
@@ -63,7 +61,7 @@ start_container() {
 run_webcam() {
   local idx="${1:-0}"                                   # camera index
   local src="${2:-assets/examples/source/test.png}"     # source image path
-  docker exec -it "$NAME" bash -lic "cd /root/FasterLivePortrait && \
+  docker exec -it "$NAME" bash -lic "cd /root/WebLivePortrait && \
     python run.py \
       --src_image \"${src}\" \
       --dri_video ${idx} \
@@ -72,7 +70,7 @@ run_webcam() {
 }
 
 run_webui(){
-  CMD='cd /root/FasterLivePortrait && python webui.py --mode trt'
+  CMD='cd /root/WebLivePortrait && python webui.py --mode trt'
   docker exec -it "$NAME" bash -lic "$CMD"
   echo "Web UI should be reachable on http://localhost:${PORT}"
 }
