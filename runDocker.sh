@@ -1,6 +1,6 @@
 set -euo pipefail
 
-NAME=${NAME:-faster_liveportrait}
+NAME=${NAME:-web_liveportrait}
 IMAGE=${IMAGE:-shaoguo/faster_liveportrait:v3}
 HOST_PROJ=${HOST_PROJ:-"$(pwd -P)"}
 DISPLAY_VAR=${DISPLAY:-:0}
@@ -18,7 +18,7 @@ usage() {
   echo "  shell           Enter a bash shell in the container"
   echo "  logs            Follow container logs"
   echo "  stop            Stop container (also revoke X access)"
-  echo "  rm              Remove container (also revoke X access)"
+  echo "  rm/remove       Remove container (also revoke X access)"
 }
 
 start_container() {
@@ -102,5 +102,6 @@ case "$cmd" in
   logs)   follow_logs ;;
   stop)   stop_container ;;
   rm)     remove_container ;;
+  remove) remove_container ;;
   *)      usage; exit 1 ;;
 esac
