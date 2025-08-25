@@ -33,13 +33,15 @@ start_container() {
   [ -e "$WEBCAM0" ] && RUN_OPTS+=( --device "$WEBCAM0" )
   [ -e "$WEBCAM1" ] && RUN_OPTS+=( --device "$WEBCAM1" )
   # Nvidia device nodes (not strictly required with --gpus=all, but kept for parity)
-  for d in /dev/nvidia0 /dev/nvidiactl /dev/nvidia-uvm /dev/nvidia-uvm-tools; do
-    [ -e "$d" ] && RUN_OPTS+=( --device "$d" )
-  done
+  # For testing Linux without nvidia-container-toolkit installed, uncomment below
+  # for d in /dev/nvidia0 /dev/nvidiactl /dev/nvidia-uvm /dev/nvidia-uvm-tools; do
+  #   [ -e "$d" ] && RUN_OPTS+=( --device "$d" )
+  # done
   RUN_OPTS+=(
     -e DISPLAY="$DISPLAY_VAR" --network host
-    -v /tmp/.X11-unix:/tmp/.X11-unix:ro
-    -v /usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:ro
+    # Register X11 socket for testing Linux without nvidia-container-toolkit
+    # -v /tmp/.X11-unix:/tmp/.X11-unix:ro
+    # -v /usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:ro
     -v "$HOST_PROJ":/root/WebLivePortrait
   )
 

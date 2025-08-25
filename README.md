@@ -68,6 +68,7 @@ In this project, I focused on retaining only the core functionality I needed fro
 
 ### Start Docker Container Shell Manully
   ```shell
+  # On the testing Linux OS(To Use webcam, cv2 pop window and GPU)
       docker run -it --gpus=all --name web_liveportrait  \
       --device /dev/video0 --device /dev/video1 \
       --device /dev/nvidia0 --device /dev/nvidiactl \
@@ -75,6 +76,12 @@ In this project, I focused on retaining only the core functionality I needed fro
       -e DISPLAY=$DISPLAY \
       -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
       -v /usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib64:ro \
+      -v $(pwd -P):/root/WebLivePortrait \
+      -p 9870:9870 shaoguo/faster_liveportrait:v3 /bin/bash
+  ```
+  ```shell
+  # General OS
+      docker run -it --gpus=all --name web_liveportrait  \
       -v $(pwd -P):/root/WebLivePortrait \
       -p 9870:9870 shaoguo/faster_liveportrait:v3 /bin/bash
   ```
