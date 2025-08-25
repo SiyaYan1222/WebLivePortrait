@@ -90,8 +90,8 @@ class FaceAnalysisModel:
     def __init__(self, **kwargs):
         self.model_paths = kwargs.get("model_path", [])
         self.predict_type = kwargs.get("predict_type", "trt")
-        self.device = torch.cuda.current_device()
-        self.cudaStream = torch.cuda.current_stream().cuda_stream
+        self.device = torch.cuda.current_device() if torch.cuda.is_available() else torch.device("cpu")
+        self.cudaStream = torch.cuda.current_stream().cuda_stream if torch.cuda.is_available() else None
 
         assert self.model_paths
         self.face_det = get_predictor(predict_type=self.predict_type, model_path=self.model_paths[0])

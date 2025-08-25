@@ -16,7 +16,7 @@ import numpy as np
 
 import argparse
 
-
+import torch
 
 from src.pipelines.gradio_live_portrait_pipeline import GradioLivePortraitPipeline
 from src.pipelines.faster_live_portrait_pipeline import FasterLivePortraitPipeline 
@@ -36,9 +36,16 @@ if args.mode == "onnx":
 else:
     cfg_path = "configs/trt_mp_infer.yaml" if args.use_mp else "configs/trt_infer.yaml"
     
+def has_nvidia():
+    if torch.cuda.is_available():
+        return True, f"CUDA device: {torch.cuda.get_device_name(0)}"
+    else:
+        return False, "No CUDA device available"
+    
 infer_cfg = OmegaConf.load(cfg_path)
 gradio_pipeline = GradioLivePortraitPipeline(infer_cfg)
-live_pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=False)  # uses same config as app  # :contentReference[oaicite:5]{index=5}
+has_gpu, info = has_nvidia()
+live_pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=False)  if has_gpu else None
 
 
 def gpu_wrapped_execute_video(*args, **kwargs):
@@ -139,7 +146,7 @@ def infer_worker(st):
             # keep last result if any
             pass
         else:
-            vis_rgb = cv2.resize(out_org, (TARGET_W, TARGET_H), interpolation=cv2.INTER_AREA)
+            vis_rgb = cv2.resize(out_crop, (TARGET_W, TARGET_H), interpolation=cv2.INTER_AREA)
             st["result_buf"].append(vis_rgb)
     # optional: cleanup live_pipe here
     print("worker stopped")
@@ -286,7 +293,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             gr.Markdown("**Note:** Webcam must be enabled in browser settings. If it doesn't work, try Chrome browser or check permissions.")
         with gr.Column():
             live_out = gr.Image(label="Output (Live)", type="numpy", format="jpeg", height=TARGET_H, width=TARGET_W)
-            toggle_btn = gr.Button("▶️ Start", variant="primary")
+            toggle_btn = gr.Button("▶️ Start" if has_gpu else "NO GPU, Can Not Run Live", variant="primary" ,interactive=has_gpu)
 
     live_state = gr.State({"src_ready": False, "first_frame": True, "run": False, "last_vis": None})
 

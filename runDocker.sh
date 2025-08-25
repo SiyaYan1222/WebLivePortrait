@@ -29,7 +29,7 @@ start_container() {
   xhost +local:root >/dev/null 2>&1 || true
 
   # Build run options
-  RUN_OPTS=( --gpus=all --name "$NAME" --ipc=host --shm-size=8g -d )
+  RUN_OPTS=(--gpus=all --name "$NAME" --ipc=host --shm-size=8g -d )
   [ -e "$WEBCAM0" ] && RUN_OPTS+=( --device "$WEBCAM0" )
   [ -e "$WEBCAM1" ] && RUN_OPTS+=( --device "$WEBCAM1" )
   # Nvidia device nodes (not strictly required with --gpus=all, but kept for parity)
