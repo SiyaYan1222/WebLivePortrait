@@ -146,12 +146,11 @@ def infer_worker(st):
             # keep last result if any
             pass
         else:
-            vis_rgb = cv2.resize(out_crop, (TARGET_W, TARGET_H), interpolation=cv2.INTER_AREA)
-            st["result_buf"].append(vis_rgb)
+            # vis_rgb = cv2.resize(out_crop, (TARGET_W, TARGET_H), interpolation=cv2.INTER_AREA)
+            st["result_buf"].append(out_org)
     # optional: cleanup live_pipe here
     print("worker stopped")
     st["running"] = False
-
 
 def _draw_fps(rgb, st):
     if rgb is None:
@@ -170,7 +169,23 @@ def _draw_fps(rgb, st):
         0.8, (0, 0, 255), 2, cv2.LINE_AA
     )
     return frame
-    
+
+def resize_and_center_crop(frame, target_w, target_h):
+    h, w = frame.shape[:2]
+    # scale so the smaller side fits the target
+    scale = max(target_w / w, target_h / h)
+    new_w, new_h = int(w * scale), int(h * scale)
+
+    # resize with preserved aspect ratio
+    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # crop center
+    x_start = (new_w - target_w) // 2
+    y_start = (new_h - target_h) // 2
+    cropped = resized[y_start:y_start + target_h, x_start:x_start + target_w]
+
+    return cropped
+   
 def live_step(driving_frame_rgb, st):
     if driving_frame_rgb is None:
         return None, st
@@ -193,7 +208,7 @@ def live_step(driving_frame_rgb, st):
     # enqueue frame (downscale if needed)
     frame = driving_frame_rgb
     if (frame.shape[1], frame.shape[0]) != (TARGET_W, TARGET_H):
-        frame = cv2.resize(frame, (TARGET_W, TARGET_H), interpolation=cv2.INTER_AREA)
+        frame = resize_and_center_crop(frame, TARGET_W, TARGET_H)
     if st["frame_buf"].full():
         try:
             st["frame_buf"].get_nowait()
