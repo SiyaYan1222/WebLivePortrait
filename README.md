@@ -81,6 +81,11 @@ In this project, I focused on retaining only the core functionality I needed fro
 
 ### Use CLI in Docker Container Shell
 
+### Install Python Dependency libs:
+  ```shell
+   cd root/WebLivePortrait 
+   pip install -r requirements.txt
+  ```
 ### Test the basic pipeline:
   ```shell
    python run.py \
